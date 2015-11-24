@@ -130,20 +130,27 @@ class GameState():
         self.cell_dict = {}
         self.create_cells()
         self.start_cells()
+        self.create_cell_dict()
+        self.test_print()
         window.create_buttons()
         self.create_mines()
-        self.create_cell_dict()
+
 
     def create_cells(self):
         for i in range(0,window.tiles):
             for j in range(1,window.tiles):
                 a_cell = Cell([i ,j])
                 self.cells.append(a_cell)
-        return self.cells
+
 
     def create_cell_dict(self):
+        print len(self.cells)
         for cell in self.cells:
             self.cell_dict[cell.name] = cell
+
+    def test_print(self):
+        for key in self.cell_dict.key():
+            print key
 
     def start_cells(self):
         for cell in self.cells:
