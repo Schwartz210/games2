@@ -17,13 +17,13 @@ class MainWindow():
         self.canvas = Canvas(self.master, width=self.WIDTH, height=self.HEIGHT)
         self.count = 0
         self.canvas.bind("<Button-1>", callback_left)
-        self.canvas.bind("<Button-3>", callback_tester)
+        self.canvas.bind("<Button-3>", callback_right)
 
     def counter(self):
         '''
         This function is called within the event timer. It updates the time counter, and draws it on the canvas.
         '''
-        if game.game_status == "game over":
+        if game.game_in_prog == False:
             pass
         else:
             self.count += 1
@@ -45,12 +45,12 @@ class MainWindow():
         self.canvas.create_rectangle(0, 0, self.button_dim[0], self.button_dim[1], fill="green")
         self.canvas.create_text(self.button_dim[0] / 2, self.button_dim[1] / 2, text="New game")
 
-    def end_graphic(self, mine):
+    def end_graphic(self, cell):
         '''
         This code is executed when player selects mine. The locations of the mines are displayed to the player-
         with "X"'s in red boxes.
         '''
-        placement = mine.placement
+        placement = cell.placement
         self.canvas.create_rectangle(placement[0] * self.cell_size,
                                      placement[1] * self.cell_size,
                                      placement[0] * self.cell_size + self.cell_size,
@@ -82,10 +82,19 @@ class MainWindow():
                                      placement[1] * self.cell_size + self.cell_size,
                                      fill="grey")
 
+    def green_graphic(self, cell):
+        placement = cell.placement
+        self.canvas.create_rectangle(placement[0] * self.cell_size,
+                                     placement[1] * self.cell_size,
+                                     placement[0] * self.cell_size + self.cell_size,
+                                     placement[1] * self.cell_size + self.cell_size,
+                                     fill="green")
+
+
 class GameState():
     def __init__(self):
         self.mine_quantity = 35
-        self.game_status = "start"
+        self.game_in_prog = True
         self.mines = []
         self.flags = []
         self.selected_tiles = []
@@ -103,7 +112,7 @@ class GameState():
         '''
         Executes if player selects mine
         '''
-        self.game_status = "game over"
+        self.game_in_prog = False
         self.show_mines()
 
     def show_mines(self):
@@ -118,17 +127,17 @@ class GameState():
         This function reinitializes game state
         '''
         window.count = 0  # in-game counter
-        self.game_status = "Start"
+        self.game_in_prog = True
         self.flags = []
         self.selected_tiles = []
         self.cells = []
+        self.mines = []
         self.cell_dict = {}
         self.create_cells()
         self.start_cells()
         self.create_cell_dict()
         self.create_mines()
         self.find_all_mines()
-        self.next_cells()
         window.create_buttons()
         self.find_all_mines()
 
@@ -136,7 +145,7 @@ class GameState():
         for i in range(window.tiles):
             for j in range(window.tiles):
                 placement = [i ,j + 1]
-                a_cell = Cell(placement, True)
+                a_cell = Cell(placement)
                 self.cells.append(a_cell)
 
     def create_cell_dict(self):
@@ -147,10 +156,6 @@ class GameState():
         for cell in self.cells:
             cell.start()
 
-    def next_cells(self):
-        for cell in self.cells:
-            cell.next_phase()
-
     def find_all_mines(self):
         for cell in self.cells:
             if cell.is_mine:
@@ -158,9 +163,8 @@ class GameState():
 
 
 class Cell():
-    def __init__(self, placement, status):
+    def __init__(self, placement):
         self.placement = placement
-        self.status = status
         self.name = ""
         self.mine_count = 0
         self.adjacent_cells = []
@@ -169,21 +173,26 @@ class Cell():
 
     def find_adjacent_cell(self):
         '''
-        Takes mouseclick cell as input, find the quantity of mines adjacent to that cell (0 - 8). The a1 variable series
+        Takes mouseclick cell as input, returns all adjacent cells to self .The a1 variable series (a1, a2, etc)-
         represents all adjacent cells.
         '''
         self.adjacent_cells = []
-        a1 = [self.placement[0] - 1, self.placement[1] - 1]  # upper left adjacent cell
-        a2 = [self.placement[0], self.placement[1] - 1]  # upper adjacent cell
-        a3 = [self.placement[0] + 1, self.placement[1] - 1]  # upper right adjacent cell
-        a4 = [self.placement[0] - 1, self.placement[1]]  # left adjacent cell
-        a5 = [self.placement[0] + 1, self.placement[1]]  # right adjacent cell
-        a6 = [self.placement[0] - 1, self.placement[1] + 1]  # lower left adjacent cell
-        a7 = [self.placement[0], self.placement[1] + 1]  # lower adjacent cell
-        a8 = [self.placement[0] + 1, self.placement[1] + 1]  # lower right adjacent cell
+        up = -1                                                           #_________________
+        down = 1                                                          # a1 |  a2  | a3 |
+        left = -1                                                         # a4 | self | a5 |
+        right = 1                                                         # a6 |  a7  | a8 |
+        same = 0                                                          #=================
+        a1 = [self.placement[0] + left, self.placement[1] + up]           # upper left
+        a2 = [self.placement[0] + same, self.placement[1] + up]           # upper
+        a3 = [self.placement[0] + right, self.placement[1] + up]          # upper right
+        a4 = [self.placement[0] + left, self.placement[1] + same]         # left
+        a5 = [self.placement[0] + right, self.placement[1] + same]        # right
+        a6 = [self.placement[0] + left, self.placement[1] + down]         # lower left
+        a7 = [self.placement[0] + same, self.placement[1] + down]         # lower
+        a8 = [self.placement[0] + right, self.placement[1] + down]        # lower right
         a_series = [a1, a2, a3, a4, a5, a6, a7, a8]
         for item in a_series:
-            if 15 > item[0] >= 0 and 15 > item[1] >= 1:
+            if 15 > item[0] >= 0 and 15 > item[1] >= 1:                   #screening out coord not in grid
                 name = find_name(item)
                 self.adjacent_cells.append(game.cell_dict[name])
         return self.adjacent_cells
@@ -202,23 +211,19 @@ class Cell():
         a = self.letters[self.placement[0]]
         b = self.placement[1]
         self.name = a + str(b)
-        return self.name
 
     def start(self):
         self.create_name()
         window.grey_graphic(self)
 
-    def next_phase(self):
-        self.find_adjacent_cell()
-        self.find_adjacent_mines()
 
     def select_cell(self):
+        self.find_adjacent_cell()
+        self.find_adjacent_mines()
         window.number_graphic(self)
         if self.is_mine:
             game.trip_mine()
 
-
-a_cell = Cell([1,1],True)
 
 def find_name(placement):
     a = a_cell.letters[placement[0]]
@@ -253,8 +258,8 @@ def callback_left(event):
     coord = [event.x, event.y]
     detect_button(coord)
 
-    if detect_border(coord) == True:
-        return None
+    if detect_border(coord) == True: return None
+    if game.game_in_prog == False: return None
     placement = find_placement(coord)
     name = find_name(placement)
     cell = game.cell_dict[name]
@@ -265,26 +270,22 @@ def callback_right(event):
     Handler for right mouseclick. This block of code executes everytime left-mouseclick event occurs.
     '''
     coord = [event.x, event.y]
-    cell = find_cell(coord)
+    placement = find_placement(coord)
+    name = find_name(placement)
+    cell = game.cell_dict[name]
+
     if cell not in game.flags:
         window.flag_graphic(cell)
         game.flags.append(cell)
     else:
-        window.grey_graphic()
-        flags.remove(cell)
-
-def callback_tester(event):
-    coord = [event.x, event.y]
-    detect_button(coord)
-    placement = find_placement(coord)
-    name = find_name(placement)
-    cell = game.cell_dict[name]
-    print cell.name
+        window.grey_graphic(cell)
+        game.flags.remove(cell)
 
 
 # Objects
 window = MainWindow()
 game = GameState()
+a_cell = Cell([1,1])
 
 # function calls
 game.new_game()
